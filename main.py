@@ -10,6 +10,11 @@ class TaskCreate(BaseModel):
     title: str = Field(min_length=1)
 
 
+class TaskUpdate(BaseModel):
+    title: str = Field(min_length=1)
+    done: bool
+
+
 tasks = [
     {"id": 1, "title": "Complete assignment", "done": False},
     {"id": 2, "title": "Study FastAPI", "done": True},
@@ -72,3 +77,30 @@ def create_task(task_data: TaskCreate):
     tasks.append(new_task)
 
     return new_task
+
+
+@app.put("/tasks/{id}")
+def update_task(id: int, task_data: TaskUpdate):
+    for task in tasks:
+        if task["id"] == id:
+            task["title"] = task_data.title
+            task["done"] = task_data.done
+            return task
+
+    return JSONResponse(
+        status_code=404,
+        content={"error": f"Task {id} not found"}
+    )
+
+
+@app.delete("/tasks/{id}", status_code=204)
+def delete_task(id: int):
+    for task in tasks:
+        if task["id"] == id:
+            tasks.remove(task)
+            return
+
+    return JSONResponse(
+        status_code=404,
+        content={"error": f"Task {id} not found"}
+    )
