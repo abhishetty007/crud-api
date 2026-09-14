@@ -1,9 +1,43 @@
+import sqlite3
+
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel, Field
 
 app = FastAPI()
+DB_NAME = "tasks.db"
+
+
+def init_db():
+    connection = sqlite3.connect(DB_NAME)
+
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS tasks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            done BOOLEAN NOT NULL
+        )
+    """)
+
+    cursor = connection.execute("SELECT COUNT(*) FROM tasks")
+    task_count = cursor.fetchone()[0]
+
+    if task_count == 0:
+        connection.executemany(
+            "INSERT INTO tasks (title, done) VALUES (?, ?)",
+            [
+                ("Complete assignment", False),
+                ("Study FastAPI", True),
+                ("Push code to GitHub", False)
+            ]
+        )
+
+    connection.commit()
+    connection.close()
+
+
+init_db()
 
 
 class TaskCreate(BaseModel):
