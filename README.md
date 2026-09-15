@@ -1,132 +1,162 @@
 # Task API
 
-A small CRUD API built with Python and FastAPI.
+A small CRUD API built with Python, FastAPI, PostgreSQL, and Docker Compose.
 
-The API manages an in-memory to-do list and supports creating, reading, updating, and deleting tasks.
+The project manages a simple list of tasks and demonstrates how an API can use a separate repository layer for database access.
 
-## Requirements
+## Architecture
 
-- Python 3.10+
-- FastAPI
-- Uvicorn
-- SQLite
+```text
+Client
+  |
+  v
+FastAPI application
+  |
+  v
+repository.py
+  |
+  v
+PostgreSQL
+  |
+  v
+Docker volume
+The FastAPI routes are separated from database access. The routes call functions in repository.py, while the repository handles PostgreSQL queries.
 
-## Installation and Run
+Technologies
+Python
+FastAPI
+PostgreSQL
+psycopg
+Docker
+Docker Compose
+Project Structure
+.
+├── main.py
+├── repository.py
+├── init.sql
+├── Dockerfile
+├── docker-compose.yml
+├── requirements.txt
+├── .env.example
+├── .gitignore
+├── README.md
+└── docs/
+Configuration
 
-Create a virtual environment:
+Database configuration is stored in environment variables.
 
-```bash
-python -m venv .venv
+The real .env file is intentionally excluded from Git using .gitignore.
 
-Activate it on Windows PowerShell:
+A safe template is provided in:
 
-.venv\Scripts\Activate.ps1
+.env.example
 
-Install dependencies:
+Example:
 
-pip install -r requirements.txt
+POSTGRES_USER=taskuser
+POSTGRES_PASSWORD=your_password_here
+POSTGRES_DB=taskdb
+DATABASE_URL=postgresql://taskuser:your_password_here@db:5432/taskdb
 
-Start the server:
+Inside Docker Compose, db is the hostname of the PostgreSQL service.
 
-uvicorn main:app --reload
+Database
 
-The API will be available at:
+PostgreSQL runs inside Docker using the official PostgreSQL image.
 
-http://127.0.0.1:8000
+The database uses a named Docker volume:
 
-Swagger UI
+taskdata
 
-Interactive API documentation is available at:
+This keeps PostgreSQL data persistent when the database container is stopped or recreated.
 
-http://127.0.0.1:8000/docs
+The database table is created automatically using:
 
-Endpoints
+init.sql
+
+The schema is:
+
+CREATE TABLE IF NOT EXISTS tasks (
+    id SERIAL PRIMARY KEY,
+    title TEXT NOT NULL,
+    done BOOLEAN NOT NULL DEFAULT FALSE
+);
+Running the Project
+
+Make sure Docker Desktop is running.
+
+Start the complete stack with:
+
+docker compose up --build
+
+This starts:
+
+FastAPI application
+PostgreSQL database
+
+The API is available at:
+
+http://localhost:8000
+
+Swagger UI:
+
+http://localhost:8000/docs
+API Endpoints
 Method	Endpoint	Description
-GET	/	Get API information
-GET	/health	Check API health
+GET	/	API information
+GET	/health	Health check
 GET	/tasks	Get all tasks
 GET	/tasks/{id}	Get one task
 POST	/tasks	Create a task
 PUT	/tasks/{id}	Update a task
 DELETE	/tasks/{id}	Delete a task
-Task Format
-
-A task contains:
-
+Example Task
 {
   "id": 1,
-  "title": "Complete assignment",
+  "title": "Learn Docker",
   "done": false
 }
-Why SQLite?
+Repository Layer
 
-SQLite was chosen because it is lightweight, requires no separate database server, and stores the database in a single file. This makes it simple to set up while still providing persistence when the server restarts.
+Database operations are kept in repository.py.
 
-Database
+For example, creating a task calls:
 
-The application uses a SQLite database stored in:
+FastAPI route
+    ↓
+repository.create_task()
+    ↓
+PostgreSQL INSERT
 
-tasks.db
+This keeps the API layer independent from the database implementation.
 
-The database file is created automatically when the application starts if it does not already exist.
+SQL queries use parameters instead of directly concatenating user input.
 
-The tasks table is also created automatically. Three example tasks are inserted only when the table is empty.
+Persistence Test
 
-The database file is included in .gitignore, so it is not uploaded to GitHub.
+Persistence was tested by:
 
-Data Persistence
+Starting the application and PostgreSQL with Docker Compose.
+Creating a task through the API.
+Confirming the task existed in PostgreSQL.
+Running docker compose down.
+Starting the stack again with docker compose up --build.
+Requesting GET /tasks.
+Confirming the previously created task was still present.
 
-Unlike the previous in-memory version, tasks stored in SQLite survive server restarts.
+The PostgreSQL data survives because the database uses the named taskdata Docker volume.
 
-The API endpoints remain the same while the storage implementation has changed from a Python list to a SQLite database.
+docker compose down -v should not be used when testing persistence because it removes the named volume.
 
+Useful Database Command
+
+To inspect the tasks directly in PostgreSQL:
+
+docker compose exec db psql -U taskuser -d taskdb -c "SELECT * FROM tasks;"
 HTTP Status Codes
 Status	Meaning
 200	Successful request
-201	Task successfully created
-204	Task successfully deleted
+201	Task created
+204	Task deleted successfully
 400	Invalid request
 404	Task not found
-Example curl Output
-HTTP/1.1 200 OK
-date: Sun, 13 Sep 2026 13:20:05 GMT
-server: uvicorn
-content-length: 15
-content-type: application/json
-Example SQL Query
-
-During Stage 4, I ran the following query in DB Browser for SQLite:
-
-SELECT * FROM tasks WHERE done = 1;
-
-This query returns only the tasks that are marked as completed.
-
-Database Screenshot
-
-The SQLite database was inspected using DB Browser for SQLite.
-
-Swagger Screenshot
-
-The API can be tested interactively using FastAPI's Swagger UI.
-
-
-### One small correction
-
-The first line currently says:
-
-> "The API manages an in-memory to-do list"
-
-That's technically outdated now because **W3 A1 has moved the storage to SQLite**.
-
-Change that sentence to:
-
-```markdown
-The API manages a SQLite-backed to-do list and supports creating, reading, updating, and deleting tasks.
-
-So your final opening becomes:
-
-# Task API
-
-A small CRUD API built with Python and FastAPI.
-
-The API manages a SQLite-backed to-do list and supports creating, reading, updating, and deleting tasks.
