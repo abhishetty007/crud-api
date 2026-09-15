@@ -37,3 +37,9 @@ server: uvicorn
 content-length: 15
 content-type: application/json
 ```
+## Example SQL Query
+
+During Stage 4, I ran the following query in DB Browser for SQLite:
+
+```sql
+SELECT * FROM tasks WHERE done = 1;
