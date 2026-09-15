@@ -40,6 +40,12 @@ def init_db():
 init_db()
 
 
+def get_connection():
+    connection = sqlite3.connect(DB_NAME)
+    connection.row_factory = sqlite3.Row
+    return connection
+
+
 class TaskCreate(BaseModel):
     title: str = Field(min_length=1)
 
@@ -47,13 +53,6 @@ class TaskCreate(BaseModel):
 class TaskUpdate(BaseModel):
     title: str = Field(min_length=1)
     done: bool
-
-
-tasks = [
-    {"id": 1, "title": "Complete assignment", "done": False},
-    {"id": 2, "title": "Study FastAPI", "done": True},
-    {"id": 3, "title": "Push code to GitHub", "done": False}
-]
 
 
 @app.exception_handler(RequestValidationError)
@@ -83,19 +82,35 @@ def health_check():
 
 @app.get("/tasks")
 def get_tasks():
-    return tasks
+    connection = get_connection()
+
+    rows = connection.execute(
+        "SELECT * FROM tasks"
+    ).fetchall()
+
+    connection.close()
+
+    return [dict(row) for row in rows]
 
 
 @app.get("/tasks/{id}")
 def get_task(id: int):
-    for task in tasks:
-        if task["id"] == id:
-            return task
+    connection = get_connection()
 
-    return JSONResponse(
-        status_code=404,
-        content={"error": f"Task {id} not found"}
-    )
+    row = connection.execute(
+        "SELECT * FROM tasks WHERE id = ?",
+        (id,)
+    ).fetchone()
+
+    connection.close()
+
+    if row is None:
+        return JSONResponse(
+            status_code=404,
+            content={"error": "Task not found"}
+        )
+
+    return dict(row)
 
 
 @app.post("/tasks", status_code=201)
