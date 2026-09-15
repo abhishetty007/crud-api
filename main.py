@@ -139,27 +139,51 @@ def create_task(task_data: TaskCreate):
 
 
 @app.put("/tasks/{id}")
+@app.put("/tasks/{id}")
 def update_task(id: int, task_data: TaskUpdate):
-    for task in tasks:
-        if task["id"] == id:
-            task["title"] = task_data.title
-            task["done"] = task_data.done
-            return task
+    connection = get_connection()
 
-    return JSONResponse(
-        status_code=404,
-        content={"error": f"Task {id} not found"}
+    cursor = connection.execute(
+        "UPDATE tasks SET title = ?, done = ? WHERE id = ?",
+        (task_data.title, task_data.done, id)
     )
+
+    connection.commit()
+
+    if cursor.rowcount == 0:
+        connection.close()
+        return JSONResponse(
+            status_code=404,
+            content={"error": f"Task {id} not found"}
+        )
+
+    row = connection.execute(
+        "SELECT * FROM tasks WHERE id = ?",
+        (id,)
+    ).fetchone()
+
+    connection.close()
+
+    return dict(row)
 
 
 @app.delete("/tasks/{id}", status_code=204)
+@app.delete("/tasks/{id}", status_code=204)
 def delete_task(id: int):
-    for task in tasks:
-        if task["id"] == id:
-            tasks.remove(task)
-            return
+    connection = get_connection()
 
-    return JSONResponse(
-        status_code=404,
-        content={"error": f"Task {id} not found"}
+    cursor = connection.execute(
+        "DELETE FROM tasks WHERE id = ?",
+        (id,)
     )
+
+    connection.commit()
+    connection.close()
+
+    if cursor.rowcount == 0:
+        return JSONResponse(
+            status_code=404,
+            content={"error": f"Task {id} not found"}
+        )
+
+    return
