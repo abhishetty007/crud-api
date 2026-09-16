@@ -1,4 +1,11 @@
-from fastapi import FastAPI, Request, Depends, HTTPException
+from fastapi import (
+    FastAPI,
+    Request,
+    Depends,
+    HTTPException
+)
+
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -8,6 +15,12 @@ from supabase_client import supabase
 
 
 app = FastAPI()
+
+# -------------------------
+# Swagger Bearer Authentication
+# -------------------------
+
+security = HTTPBearer(auto_error=False)
 
 
 class TaskCreate(BaseModel):
@@ -28,24 +41,18 @@ class AuthRequest(BaseModel):
 # Reusable authentication dependency
 # -------------------------
 
-def get_current_user(request: Request):
-    authorization = request.headers.get("Authorization")
-
-    if not authorization:
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    # No Authorization header or invalid authentication scheme
+    if credentials is None:
         raise HTTPException(
             status_code=401,
             detail="Access token required"
         )
 
-    parts = authorization.split(" ")
-
-    if len(parts) != 2 or parts[0].lower() != "bearer":
-        raise HTTPException(
-            status_code=401,
-            detail="Access token required"
-        )
-
-    token = parts[1]
+    # Extract the actual token
+    token = credentials.credentials
 
     if not token:
         raise HTTPException(
@@ -53,6 +60,7 @@ def get_current_user(request: Request):
             detail="Access token required"
         )
 
+    # Verify token with Supabase
     try:
         response = supabase.auth.get_user(token)
 
@@ -64,6 +72,10 @@ def get_current_user(request: Request):
             detail="Invalid or expired token"
         )
 
+
+# -------------------------
+# General endpoints
+# -------------------------
 
 @app.get("/")
 def home():
@@ -223,6 +235,12 @@ def protected_dashboard(user=Depends(get_current_user)):
         "user_id": user.id,
         "email": user.email
     }
+
+
+# -------------------------
+# HTTP exception handler
+# -------------------------
+
 @app.exception_handler(HTTPException)
 async def http_exception_handler(
     request: Request,
@@ -232,6 +250,7 @@ async def http_exception_handler(
         status_code=exc.status_code,
         content={"error": exc.detail}
     )
+
 
 # -------------------------
 # Validation error handler
