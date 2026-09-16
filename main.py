@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Depends, HTTPException
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -24,6 +24,47 @@ class AuthRequest(BaseModel):
     password: str = Field(min_length=1)
 
 
+# -------------------------
+# Reusable authentication dependency
+# -------------------------
+
+def get_current_user(request: Request):
+    authorization = request.headers.get("Authorization")
+
+    if not authorization:
+        raise HTTPException(
+            status_code=401,
+            detail="Access token required"
+        )
+
+    parts = authorization.split(" ")
+
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        raise HTTPException(
+            status_code=401,
+            detail="Access token required"
+        )
+
+    token = parts[1]
+
+    if not token:
+        raise HTTPException(
+            status_code=401,
+            detail="Access token required"
+        )
+
+    try:
+        response = supabase.auth.get_user(token)
+
+        return response.user
+
+    except Exception:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or expired token"
+        )
+
+
 @app.get("/")
 def home():
     return {
@@ -33,8 +74,10 @@ def home():
             "/tasks",
             "/auth/signup",
             "/auth/login",
+            "/auth/logout",
             "/public/info",
-            "/protected/profile"
+            "/protected/profile",
+            "/protected/dashboard"
         ]
     }
 
@@ -139,8 +182,18 @@ def login(auth_data: AuthRequest):
         )
 
 
+@app.post("/auth/logout", status_code=204)
+def logout(user=Depends(get_current_user)):
+    try:
+        supabase.auth.sign_out()
+    except Exception:
+        pass
+
+    return
+
+
 # -------------------------
-# Stage 2: Public route
+# Public route
 # -------------------------
 
 @app.get("/public/info")
@@ -151,55 +204,34 @@ def public_info():
 
 
 # -------------------------
-# Stage 2: Protected route
+# Protected routes
 # -------------------------
 
 @app.get("/protected/profile")
-def protected_profile(request: Request):
-    authorization = request.headers.get("Authorization")
+def protected_profile(user=Depends(get_current_user)):
+    return {
+        "id": user.id,
+        "email": user.email,
+        "user_metadata": user.user_metadata
+    }
 
-    # No Authorization header
-    if not authorization:
-        return JSONResponse(
-            status_code=401,
-            content={"error": "Access token required"}
-        )
 
-    # Check Bearer <token> format
-    parts = authorization.split(" ")
-
-    if len(parts) != 2 or parts[0].lower() != "bearer":
-        return JSONResponse(
-            status_code=401,
-            content={"error": "Access token required"}
-        )
-
-    token = parts[1]
-
-    if not token:
-        return JSONResponse(
-            status_code=401,
-            content={"error": "Access token required"}
-        )
-
-    # Verify the token with Supabase
-    try:
-        response = supabase.auth.get_user(token)
-
-        user = response.user
-
-        return {
-            "id": user.id,
-            "email": user.email,
-            "user_metadata": user.user_metadata
-        }
-
-    except Exception:
-        return JSONResponse(
-            status_code=401,
-            content={"error": "Invalid or expired token"}
-        )
-
+@app.get("/protected/dashboard")
+def protected_dashboard(user=Depends(get_current_user)):
+    return {
+        "message": "Welcome to your dashboard!",
+        "user_id": user.id,
+        "email": user.email
+    }
+@app.exception_handler(HTTPException)
+async def http_exception_handler(
+    request: Request,
+    exc: HTTPException
+):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"error": exc.detail}
+    )
 
 # -------------------------
 # Validation error handler
