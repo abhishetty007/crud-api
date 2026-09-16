@@ -160,3 +160,114 @@ Status	Meaning
 204	Task deleted successfully
 400	Invalid request
 404	Task not found
+
+# Task API
+
+A FastAPI task management API with PostgreSQL persistence and Supabase authentication.
+
+## Features
+
+- CRUD operations for tasks
+- PostgreSQL database
+- Docker and Docker Compose
+- Supabase authentication
+- User signup and login
+- JWT access-token verification
+- Protected API routes
+- Reusable FastAPI authentication dependency
+- Swagger UI with Bearer authentication
+
+## Tech Stack
+
+- Python
+- FastAPI
+- PostgreSQL
+- Supabase Auth
+- Docker
+- Docker Compose
+- Uvicorn
+
+## Authentication Flow
+
+1. User signs up using `/auth/signup`
+2. User logs in using `/auth/login`
+3. Supabase returns an access token
+4. Client sends the token using:
+
+   `Authorization: Bearer <access_token>`
+
+5. FastAPI extracts the token
+6. Supabase verifies the token
+7. Valid users can access protected routes
+
+## Environment Variables
+
+Create a `.env` file:
+
+```env
+SUPABASE_URL=your_project_url
+SUPABASE_KEY=your_publishable_or_anon_key
+
+Running the Project
+1. Clone the repository
+git clone <your-repository-url>
+cd crud-api
+2. Create and activate virtual environment
+
+Windows:
+
+python -m venv .venv
+.venv\Scripts\activate
+3. Install dependencies
+pip install -r requirements.txt
+4. Configure environment variables
+
+Create .env using .env.example.
+
+5. Start the server
+uvicorn main:app --reload
+
+The API will be available at:
+
+http://127.0.0.1:8000
+
+Swagger Documentation
+
+Open:
+
+http://127.0.0.1:8000/docs
+
+Use the Authorize button to provide the Supabase access token.
+
+API Endpoints
+Method	Endpoint	Authentication
+GET	/tasks	Public
+GET	/tasks/{id}	Public
+POST	/tasks	Public
+PUT	/tasks/{id}	Public
+DELETE	/tasks/{id}	Public
+POST	/auth/signup	Public
+POST	/auth/login	Public
+POST	/auth/logout	Bearer token
+GET	/public/info	Public
+GET	/protected/profile	Bearer token
+GET	/protected/dashboard	Bearer token
+Project Structure
+crud-api/
+│
+├── main.py
+├── repository.py
+├── supabase_client.py
+├── requirements.txt
+├── Dockerfile
+├── docker-compose.yml
+├── init.sql
+├── .env.example
+├── .gitignore
+└── README.md
+Security
+Passwords are handled by Supabase Auth.
+Passwords are not stored directly by this application.
+Access tokens are verified through Supabase.
+Environment secrets are stored in .env.
+.env is excluded from Git.
