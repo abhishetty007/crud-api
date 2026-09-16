@@ -4,6 +4,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 import repository
+from supabase_client import supabase
 
 
 app = FastAPI()
@@ -18,12 +19,21 @@ class TaskUpdate(BaseModel):
     done: bool
 
 
+class AuthRequest(BaseModel):
+    email: str = Field(min_length=1)
+    password: str = Field(min_length=1)
+
+
 @app.get("/")
 def home():
     return {
         "name": "Task API",
         "version": "1.0",
-        "endpoints": ["/tasks"]
+        "endpoints": [
+            "/tasks",
+            "/auth/signup",
+            "/auth/login"
+        ]
     }
 
 
@@ -31,6 +41,10 @@ def home():
 def health_check():
     return {"status": "ok"}
 
+
+# -------------------------
+# Task endpoints
+# -------------------------
 
 @app.get("/tasks")
 def get_tasks():
@@ -84,6 +98,48 @@ def delete_task(id: int):
 
     return
 
+
+# -------------------------
+# Authentication endpoints
+# -------------------------
+
+@app.post("/auth/signup", status_code=201)
+def signup(auth_data: AuthRequest):
+    try:
+        response = supabase.auth.sign_up({
+            "email": auth_data.email,
+            "password": auth_data.password
+        })
+
+        return response.model_dump()
+
+    except Exception:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "Unable to create account"}
+        )
+
+
+@app.post("/auth/login")
+def login(auth_data: AuthRequest):
+    try:
+        response = supabase.auth.sign_in_with_password({
+            "email": auth_data.email,
+            "password": auth_data.password
+        })
+
+        return response.model_dump()
+
+    except Exception:
+        return JSONResponse(
+            status_code=401,
+            content={"error": "Invalid login credentials"}
+        )
+
+
+# -------------------------
+# Validation error handler
+# -------------------------
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(
