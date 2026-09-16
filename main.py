@@ -32,7 +32,9 @@ def home():
         "endpoints": [
             "/tasks",
             "/auth/signup",
-            "/auth/login"
+            "/auth/login",
+            "/public/info",
+            "/protected/profile"
         ]
     }
 
@@ -135,6 +137,55 @@ def login(auth_data: AuthRequest):
             status_code=401,
             content={"error": "Invalid login credentials"}
         )
+
+
+# -------------------------
+# Stage 2: Public route
+# -------------------------
+
+@app.get("/public/info")
+def public_info():
+    return {
+        "message": "Welcome stranger! This info is public."
+    }
+
+
+# -------------------------
+# Stage 2: Protected route
+# -------------------------
+
+@app.get("/protected/profile")
+def protected_profile(request: Request):
+    authorization = request.headers.get("Authorization")
+
+    if not authorization:
+        return JSONResponse(
+            status_code=401,
+            content={"error": "Access token required"}
+        )
+
+    parts = authorization.split(" ")
+
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        return JSONResponse(
+            status_code=401,
+            content={"error": "Access token required"}
+        )
+
+    token = parts[1]
+
+    if not token:
+        return JSONResponse(
+            status_code=401,
+            content={"error": "Access token required"}
+        )
+
+    # Stage 2 only checks that a token was supplied.
+    # Token verification will be added in Stage 3.
+    return {
+        "message": "Token received",
+        "token_present": True
+    }
 
 
 # -------------------------
