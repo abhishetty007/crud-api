@@ -158,12 +158,14 @@ def public_info():
 def protected_profile(request: Request):
     authorization = request.headers.get("Authorization")
 
+    # No Authorization header
     if not authorization:
         return JSONResponse(
             status_code=401,
             content={"error": "Access token required"}
         )
 
+    # Check Bearer <token> format
     parts = authorization.split(" ")
 
     if len(parts) != 2 or parts[0].lower() != "bearer":
@@ -180,12 +182,23 @@ def protected_profile(request: Request):
             content={"error": "Access token required"}
         )
 
-    # Stage 2 only checks that a token was supplied.
-    # Token verification will be added in Stage 3.
-    return {
-        "message": "Token received",
-        "token_present": True
-    }
+    # Verify the token with Supabase
+    try:
+        response = supabase.auth.get_user(token)
+
+        user = response.user
+
+        return {
+            "id": user.id,
+            "email": user.email,
+            "user_metadata": user.user_metadata
+        }
+
+    except Exception:
+        return JSONResponse(
+            status_code=401,
+            content={"error": "Invalid or expired token"}
+        )
 
 
 # -------------------------
